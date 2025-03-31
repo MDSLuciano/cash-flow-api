@@ -9,7 +9,7 @@ app.addHook('preHandler', async(request)=>{
 })
 
 // Registrando a rota
-app.register(transactionRoutes, { prefix: '/trnsactions' })
+app.register(transactionRoutes, { prefix: '/transactions' })
 
 app.setErrorHandler((error, _, reply) =>{
     if(error instanceof ZodError){
