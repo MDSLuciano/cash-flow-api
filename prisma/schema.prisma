@@ -14,16 +14,17 @@ datasource db {
 }
 
 model Transaction {
-  id            Int                      @id @default(autoincrement()) // Define o campo como id como chave primária
-  title         String // Campo para o título da transação
-  amount        Float // Campo para o valor da transação
-  type          TransactionType // Campo para o tipo da transação
-  category      TransactionCategory // Campo para o tipo da categoria
-  paymentMethod TransactionPaymentMethod @map("payment_method") // Campo para o tipo de metódo de pagamento. Mapeado para 'payment_method' no banco de dados
-  createdAt     DateTime                 @default(now()) @map("created_at") //Campo para a data de criação, com o momento atual como valor padrão. Mapeado para 'created_at' no banco de dados
-  updatedAt     DateTime?                @updatedAt @map("updated_at")
+  id              Int                      @id @default(autoincrement()) // Define o campo como id como chave primária
+  title           String // Campo para o título da transação
+  amount          Float // Campo para o valor da transação
+  type            TransactionType // Campo para o tipo da transação
+  category        TransactionCategory // Campo para o tipo da categoria
+  paymentMethod   TransactionPaymentMethod @map("payment_method") // Campo para o tipo de metódo de pagamento. Mapeado para 'payment_method' no banco de dados
+  createdAt       DateTime                 @default(now()) @map("created_at") //Campo para a data de criação, com o momento atual como valor padrão. Mapeado para 'created_at' no banco de dados
+  updatedAt       DateTime?                @updatedAt @map("updated_at") // Campo quando algum dado for alterado
+  transactionDate DateTime                 @default(now()) @map("transaction_Date") // Campo para fazer alteração na data
 
-  @@map("transactions") // Ma
+  @@map("transactions") // Mapeia as transações
 }
 
 enum TransactionType {
@@ -44,13 +45,11 @@ enum TransactionCategory {
 }
 
 enum TransactionPaymentMethod {
-  HOUSING
-  TRANSPORTATION
-  FOOD
-  ENTERTAINMENT
-  HEALTH
-  UTILITY
-  SALARY
-  EDUCATION
   OTHER
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  BANK_SLIP
+  CASH
+  PIX
 }

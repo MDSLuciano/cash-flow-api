@@ -25,11 +25,15 @@ export async function transactionRoutes(app: FastifyInstance){
 		amount: z.number().positive(),
 		type:z.enum(['credit', 'debit']),
 		category: z.enum(['HOUSING','TRANSPORTATION','FOOD','ENTERTAINMENT','HEALTH','UTILITY','SALARY','EDUCATION','OTHER']),  
-		paymentMethod: z.enum(['OTHER','CREDIT_CARD','DEBIT_CARD','BANK_TRANSFER','BANK_SLIP','CASH','PIX'])
-	  })
+		paymentMethod: z.enum(['OTHER','CREDIT_CARD','DEBIT_CARD','BANK_TRANSFER','BANK_SLIP','CASH','PIX']),
+		transactionDate: z.string().refine((date) => {
+			const parsedDate = Date.parse(date); // Verifica se a data é válida
+			return !isNaN(parsedDate);
+		}, { message: 'Invalid date format' }) // Valida a data no formato esperado
+	})
 
 		// Extrai os dados da transação da requisição e valida com o esquema
-		const { title, amount, type, category, paymentMethod } = createTransactionBodySchema.parse(request.body)
+		const { title, amount, type, category, paymentMethod, transactionDate } = createTransactionBodySchema.parse(request.body)
 
 		// Adiciona a nova transação ao array de transações
 		await prisma.transaction.create({
@@ -38,7 +42,8 @@ export async function transactionRoutes(app: FastifyInstance){
 				amount,
 				type,
 				category,
-				paymentMethod
+				paymentMethod,
+				transactionDate
 			}
 		})
 
@@ -93,14 +98,18 @@ export async function transactionRoutes(app: FastifyInstance){
 				amount: z.number().positive(),
 				type:z.enum(['credit', 'debit']),
 				category: z.enum(['HOUSING','TRANSPORTATION','FOOD','ENTERTAINMENT','HEALTH','UTILITY','SALARY','EDUCATION','OTHER']),  
-				paymentMethod: z.enum(['OTHER','CREDIT_CARD','DEBIT_CARD','BANK_TRANSFER','BANK_SLIP','CASH','PIX'])
+				paymentMethod: z.enum(['OTHER','CREDIT_CARD','DEBIT_CARD','BANK_TRANSFER','BANK_SLIP','CASH','PIX']),
+				transactionDate: z.string().refine((date) => {
+					const parsedDate = Date.parse(date); // Verifica se a data é válida
+					return !isNaN(parsedDate);
+				}, { message: 'Invalid date format' }) // Valida a data no formato esperado
 	  	})
 
 			// Extrai o id da transação dos parâmetros da rota da requisição e valida com o esquema.
 			const { id } = updateTransactionParamsSchema.parse(request.params)
 
 			// Extrai os dados da transação do corpo da requisição e valida com o esquema
-			const { title, amount, type, category, paymentMethod } = updateTransactionBodySchema.parse(request.body)
+			const { title, amount, type, category, paymentMethod, transactionDate } = updateTransactionBodySchema.parse(request.body)
 
 			// Encontra a transação com o ID
 			const transaction = await prisma.transaction.findUnique({
@@ -124,7 +133,8 @@ export async function transactionRoutes(app: FastifyInstance){
 					amount,
 					type,
 					category,
-					paymentMethod
+					paymentMethod,
+					transactionDate,
 				},
 			})
 
@@ -134,21 +144,33 @@ export async function transactionRoutes(app: FastifyInstance){
 
 	app.get('/transactions', async (request, reply) => {
     	const getTransactionsQuerySchema = z.object({
-      	limit: z.coerce.number().min(10).max(100).default(10),
-      	page: z.coerce.number().min(1).default(1)
+      		limit: z.coerce.number().min(10).max(100).default(10),
+      		page: z.coerce.number().min(1).default(1),
+			day:z.coerce.number().optional(), // Filtro por dia é opcional
+			month: z.coerce.number().optional(), // Filtro por mês é opcional
+			year: z.coerce.number().optional(), // Filtro por ano é opcional
     	})
 
-    	const { limit, page } = getTransactionsQuerySchema.parse(request.query)
+    	const { limit, page, day, month, year } = getTransactionsQuerySchema.parse(request.query)
 
+		const transactionDateFilter: { transactionDate?: { gte: string; lt: string } } = {}; // Define os filtros iniciais
+
+		if(month && year) {
+			transactionDateFilter.transactionDate = {
+				gte: `${year}-${month}-${day || '01'}`,
+				lt: `${year}-${(month) + 1}-${day ? day + 1 : '01'}`
+			}
+		}
 
     	// Busca todas as transações no banco de dados
     	const transactions = await prisma.transaction.findMany({
-      	orderBy: {
-        	id: 'desc'
-      	},
-      	take: limit,
-      	skip: (page - 1) * limit,
-    })
+			where: transactionDateFilter, // Aplica o filtro de datas
+      		orderBy: {
+        		id: 'desc'
+      		},
+      		take: limit,
+      		skip: (page - 1) * limit,
+    	})
 
     const totalTransactions = await prisma.transaction.count()
 
