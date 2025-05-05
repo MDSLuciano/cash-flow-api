@@ -252,12 +252,68 @@ export async function transactionRoutes(app: FastifyInstance){
 	})
 	//	Responsável por retornar um resumo das transações.
 	app.get('/summary', async(request, reply)=>{
+	const getSummaryQuerySchema = z.object({
+		title: z.string().optional(),
+		type: z.enum(['credit', 'debit']).optional(),
+		day:z.coerce.number().optional(), // Filtro por dia é opcional
+		month: z.coerce.number().optional(), // Filtro por mês é opcional
+		year: z.coerce.number().optional(), // Filtro por ano é opcional
+		startDate: z.string().optional(), // Filtro por data inicial
+		endDate: z.string().optional(), // Filtro por data final
+	})
+
+	const { title, type, day, month, year, startDate, endDate } = getSummaryQuerySchema.parse(request.query)
+
+	// Criação dinâmica do filtro
+	const filters: any = {};
+
+	// Passando o ano atual caso ele não passar, para fazer consulta o ano todo
+	const currentYear = new Date().getFullYear();
+	if (!year && !startDate && !endDate) {
+		filters.transactionDate = {
+			gte: new Date(`${currentYear}-01-01T00:00:00.000Z`).toISOString(), // Primeiro dia do ano atual
+			lt: new Date(`${currentYear + 1}-01-01T00:00:00.000Z`).toISOString(), // Primeiro dia do próximo ano
+		};
+	}
+
+	if (startDate && endDate) {
+		filters.transactionDate = {
+			gte: new Date(`${startDate.split('T')[0]}T00:00:00.000Z`).toISOString(), // Início do dia
+			lt: new Date(`${endDate.split('T')[0]}T23:59:59.999Z`).toISOString(),   // Fim do dia
+		};
+	} else if (month && year) {
+		const nextMonth = month === 12 ? 1 : month + 1;
+    	const nextYear = month === 12 ? year + 1 : year;
+
+    	filters.transactionDate = {
+        	gte: new Date(`${year}-${String(month).padStart(2, '0')}-${day || '01'}T00:00:00.000Z`).toISOString(),
+        	lt: new Date(`${nextYear}-${String(nextMonth).padStart(2, '0')}-${day ? String(day + 1).padStart(2, '0') : '01'}T23:59:59.999Z`).toISOString(),
+    	};
+	} else if (year) {
+		// Filtro para o ano inteiro
+		filters.transactionDate = {
+			gte: new Date(`${year}-01-01T00:00:00.000Z`).toISOString(), // Primeiro dia do ano
+			lt: new Date(`${year + 1}-01-01T00:00:00.000Z`).toISOString(), // Primeiro dia do próximo ano
+		};
+	}
+
+	if (type) {
+		filters.type = type;
+	}
+
+	if (title) {
+		filters.title = { 
+			contains: title,
+		 };
+	}
+
 	// Busca a soma de todas as transações de crédito
 	let aggregations = await prisma.transaction.aggregate({
 		_sum: {
 			amount: true,
 		},
 		where: {
+			...filters,
 			type: 'credit'
 		},
 	})
@@ -270,6 +326,7 @@ export async function transactionRoutes(app: FastifyInstance){
 			amount: true,
 		},
 		where: {
+			...filters,
 			type: 'debit'
 		},
 	})
